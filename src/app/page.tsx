@@ -4,11 +4,15 @@ import { useState } from "react";
 import Image from "next/image";
 import {
   BookOpen,
+  Briefcase,
   Cloud,
+  Coffee,
+  Dumbbell,
   Frown,
   Heart,
   Loader2,
   Music,
+  PartyPopper,
   Smile,
   Sparkles,
   Users,
@@ -36,7 +40,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { interpretMoodFromText } from "@/ai/flows/interpret-mood-from-text";
+import { interpretVibeFromText } from "@/ai/flows/interpret-mood-from-text";
 import {
   suggestOutfit,
   type SuggestOutfitOutput,
@@ -47,7 +51,7 @@ import { FitFusionLogo } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const moodOptions = [
+const vibeOptions = [
   { value: "happy", label: "Happy", icon: <Smile className="size-5" /> },
   { value: "moody", label: "Moody", icon: <Frown className="size-5" /> },
   { value: "chaotic", label: "Chaotic", icon: <Zap className="size-5" /> },
@@ -61,12 +65,16 @@ const eventOptions = [
   { value: "exam", label: "Exam", icon: <BookOpen className="size-4" /> },
   { value: "fest", label: "Fest", icon: <Music className="size-4" /> },
   { value: "casual hangout", label: "Casual Hangout", icon: <Users className="size-4" /> },
+  { value: "work", label: "Work", icon: <Briefcase className="size-4" /> },
+  { value: "party", label: "Party", icon: <PartyPopper className="size-4" /> },
+  { value: "brunch", label: "Brunch", icon: <Coffee className="size-4" /> },
+  { value: "workout", label: "Workout", icon: <Dumbbell className="size-4" /> },
 ];
 
 export default function Home() {
   const { toast } = useToast();
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
-  const [moodText, setMoodText] = useState("");
+  const [selectedVibe, setSelectedVibe] = useState<string | null>(null);
+  const [vibeText, setVibeText] = useState("");
   const [selectedEvent, setSelectedEvent] = useState("");
   const [weather, setWeather] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -76,10 +84,10 @@ export default function Home() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!selectedMood && !moodText) || !selectedEvent || !weather) {
+    if ((!selectedVibe && !vibeText) || !selectedEvent || !weather) {
       toast({
         title: "Missing Information",
-        description: "Please select a mood, event, and enter the weather.",
+        description: "Please select a vibe, event, and enter the weather.",
         variant: "destructive",
       });
       return;
@@ -91,20 +99,20 @@ export default function Home() {
     setIsGeneratingImages(false);
 
     try {
-      let finalMood = selectedMood;
+      let finalVibe = selectedVibe;
 
-      if (moodText) {
-        const interpretation = await interpretMoodFromText({ text: moodText });
-        finalMood = interpretation.moodCategory;
-        if (moodOptions.some(m => m.value === finalMood)) {
-            setSelectedMood(finalMood);
+      if (vibeText) {
+        const interpretation = await interpretVibeFromText({ text: vibeText });
+        finalVibe = interpretation.vibeCategory;
+        if (vibeOptions.some(v => v.value === finalVibe)) {
+            setSelectedVibe(finalVibe);
         }
       }
 
-      if (!finalMood) {
+      if (!finalVibe) {
         toast({
-            title: "Mood not clear",
-            description: "Could not determine mood from text. Please select a tag.",
+            title: "Vibe not clear",
+            description: "Could not determine vibe from text. Please select a tag.",
             variant: "destructive",
         });
         setIsLoading(false);
@@ -113,7 +121,7 @@ export default function Home() {
 
       // First, get the text-based outfit suggestion
       const suggestion = await suggestOutfit({
-        mood: finalMood,
+        vibe: finalVibe,
         event: selectedEvent,
         weather,
         wardrobe: JSON.stringify(wardrobe),
@@ -162,31 +170,31 @@ export default function Home() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label>How are you feeling?</Label>
+                <Label>What&apos;s your vibe?</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {moodOptions.map((mood) => (
+                  {vibeOptions.map((vibe) => (
                     <Button
-                      key={mood.value}
+                      key={vibe.value}
                       type="button"
-                      variant={selectedMood === mood.value ? "default" : "outline"}
+                      variant={selectedVibe === vibe.value ? "default" : "outline"}
                       onClick={() => {
-                        setSelectedMood(mood.value);
-                        setMoodText("");
+                        setSelectedVibe(vibe.value);
+                        setVibeText("");
                       }}
                       className="flex items-center justify-center gap-2"
                     >
-                      {mood.icon}
-                      <span>{mood.label}</span>
+                      {vibe.icon}
+                      <span>{vibe.label}</span>
                     </Button>
                   ))}
                 </div>
                 <p className="text-center text-sm text-muted-foreground my-2">OR</p>
                 <Textarea
-                  placeholder="Describe your mood in a sentence..."
-                  value={moodText}
+                  placeholder="Describe your vibe in a sentence..."
+                  value={vibeText}
                   onChange={(e) => {
-                    setMoodText(e.target.value);
-                    setSelectedMood(null);
+                    setVibeText(e.target.value);
+                    setSelectedVibe(null);
                   }}
                 />
               </div>
@@ -250,7 +258,7 @@ export default function Home() {
                             <CardTitle className="text-2xl font-headline">{outfit.outfitName}</CardTitle>
                             <CardDescription className="mt-2">{outfit.explanation}</CardDescription>
                         </div>
-                        <Badge variant="secondary" className="capitalize ml-4">{outfit.moodTag}</Badge>
+                        <Badge variant="secondary" className="capitalize ml-4">{outfit.vibeTag}</Badge>
                     </div>
                 </CardHeader>
                 <CardContent>
