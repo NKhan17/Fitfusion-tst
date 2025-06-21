@@ -13,6 +13,7 @@ import {
   Loader2,
   Music,
   PartyPopper,
+  RefreshCw,
   Smile,
   Sparkles,
   Users,
@@ -71,6 +72,12 @@ const eventOptions = [
   { value: "workout", label: "Workout", icon: <Dumbbell className="size-4" /> },
 ];
 
+interface SuggestionInputs {
+  vibe: string;
+  event: string;
+  weather: string;
+}
+
 export default function Home() {
   const { toast } = useToast();
   const [selectedVibe, setSelectedVibe] = useState<string | null>(null);
@@ -79,8 +86,10 @@ export default function Home() {
   const [weather, setWeather] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
+  const [isSuggestingAgain, setIsSuggestingAgain] = useState(false);
   const [outfit, setOutfit] = useState<SuggestOutfitOutput | null>(null);
   const [imageUrls, setImageUrls] = useState<(string | null)[]>([]);
+  const [lastSuggestionInputs, setLastSuggestionInputs] = useState<SuggestionInputs | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +106,7 @@ export default function Home() {
     setOutfit(null);
     setImageUrls([]);
     setIsGeneratingImages(false);
+    setLastSuggestionInputs(null);
 
     try {
       let finalVibe = selectedVibe;
@@ -119,17 +129,16 @@ export default function Home() {
         return;
       }
 
-      // First, get the text-based outfit suggestion
+      const currentInputs = { vibe: finalVibe, event: selectedEvent, weather };
+      setLastSuggestionInputs(currentInputs);
+
       const suggestion = await suggestOutfit({
-        vibe: finalVibe,
-        event: selectedEvent,
-        weather,
+        ...currentInputs,
         wardrobe: JSON.stringify(wardrobe),
       });
       setOutfit(suggestion);
-      setIsLoading(false); // Stop main loader, show text suggestion
+      setIsLoading(false); 
 
-      // Now, generate images for the suggested items
       setIsGeneratingImages(true);
       const imagePromises = suggestion.items.map(item =>
         generateOutfitImage(item.description)
@@ -144,11 +153,48 @@ export default function Home() {
         description: "Failed to get outfit suggestion or generate images. Please try again.",
         variant: "destructive",
       });
+      setLastSuggestionInputs(null);
       setIsLoading(false);
     } finally {
       setIsGeneratingImages(false);
     }
   };
+
+  const handleSuggestAgain = async () => {
+    if (!lastSuggestionInputs) return;
+
+    setIsSuggestingAgain(true);
+    setImageUrls([]); // Clear images to show skeletons
+    setIsGeneratingImages(true);
+
+    try {
+      const suggestion = await suggestOutfit({
+        ...lastSuggestionInputs,
+        wardrobe: JSON.stringify(wardrobe),
+      });
+      setOutfit(suggestion);
+
+      const imagePromises = suggestion.items.map(item =>
+        generateOutfitImage(item.description)
+      );
+      const imageResults = await Promise.all(imagePromises);
+      setImageUrls(imageResults.map(r => r.imageUrl));
+    } catch (error) {
+      console.error("Error on suggesting again:", error);
+      toast({
+        title: "Error",
+        description: "Failed to get another suggestion. Please try again.",
+        variant: "destructive",
+      });
+      setOutfit(null);
+      setLastSuggestionInputs(null);
+    } finally {
+      setIsSuggestingAgain(false);
+      setIsGeneratingImages(false);
+    }
+  };
+
+  const isAnyLoading = isLoading || isGeneratingImages || isSuggestingAgain;
 
   return (
     <div className="flex flex-col items-center w-full min-h-full bg-grid-gray-100/[0.1] p-4 md:p-8">
@@ -230,7 +276,7 @@ export default function Home() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isLoading || isGeneratingImages} className="w-full">
+              <Button type="submit" disabled={isAnyLoading} className="w-full">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -283,6 +329,27 @@ export default function Home() {
                         ))}
                     </div>
                 </CardContent>
+                {lastSuggestionInputs && (
+                  <CardFooter className="justify-center border-t pt-6">
+                    <Button
+                      variant="outline"
+                      onClick={handleSuggestAgain}
+                      disabled={isAnyLoading}
+                    >
+                      {isSuggestingAgain ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Getting another...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Suggest Something Else
+                        </>
+                      )}
+                    </Button>
+                  </CardFooter>
+                )}
             </Card>
           </div>
         )}
