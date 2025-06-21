@@ -11,10 +11,10 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const SuggestOutfitInputSchema = z.object({
-  mood: z.string().describe('The user\'s mood (e.g., happy, moody, calm).'),
+  mood: z.string().describe("The user's mood (e.g., happy, moody, calm)."),
   event: z.string().describe('The event the user is attending (e.g., date, exam, hangout).'),
   weather: z.string().describe('The current weather conditions (e.g., sunny, rainy, cold).'),
-  wardrobe: z.string().describe('A JSON string representing the user\'s wardrobe, with categories like tops, bottoms, layers, accessories, and footwear.'),
+  wardrobe: z.string().describe("A JSON string representing the user's wardrobe, with categories like tops, bottoms, layers, accessories, and footwear."),
 });
 export type SuggestOutfitInput = z.infer<typeof SuggestOutfitInputSchema>;
 
@@ -22,8 +22,10 @@ const SuggestOutfitOutputSchema = z.object({
   outfitName: z.string().describe('The name of the suggested outfit.'),
   moodTag: z.string().describe('The mood tag associated with the outfit.'),
   explanation: z.string().describe('An explanation of why the outfit works for the given mood, event, and weather.'),
-  // Placeholder for product image links.
-  productLinks: z.array(z.string()).optional().describe('Optional array of product image links from online stores.'),
+  items: z.array(z.object({
+    category: z.string().describe('The category of the item (e.g., Top, Bottom, Footwear, Accessory).'),
+    description: z.string().describe('A detailed description of the clothing item for image generation, inspired by Pinterest aesthetics.'),
+  })).describe('An array of 4 outfit items (Top, Bottom, Footwear, Accessory) with descriptions.'),
 });
 export type SuggestOutfitOutput = z.infer<typeof SuggestOutfitOutputSchema>;
 
@@ -42,7 +44,11 @@ const prompt = ai.definePrompt({
   Weather: {{weather}}
   Wardrobe: {{wardrobe}}
 
-  Consider the provided wardrobe to create a stylish and appropriate outfit. Your suggestions should feel like they're straight from a trending Pinterest board. The wardrobe is a JSON string. Return an outfit name, mood tag, and a fun explanation of why the outfit works, referencing Pinterest trends. If possible, return product links to representative fashion items from online stores.
+  Consider the provided wardrobe to create a stylish and appropriate outfit. Your suggestions should feel like they're straight from a trending Pinterest board. The wardrobe is a JSON string.
+  
+  Return an outfit name, a mood tag, and a fun explanation of why the outfit works, referencing Pinterest trends.
+  
+  Most importantly, provide a list of exactly 4 items for the outfit in this order: Top, Bottom, Footwear, and Accessory. For each item, provide a detailed, visually-rich description suitable for an image generation model. The description should capture the Pinterest aesthetic.
   `,
 });
 
@@ -53,16 +59,10 @@ const suggestOutfitFlow = ai.defineFlow(
     outputSchema: SuggestOutfitOutputSchema,
   },
   async input => {
-    try {
-      // Parse the wardrobe string into a JSON object
-      const wardrobe = JSON.parse(input.wardrobe);
-
-      // Now you can use the wardrobe object in your prompt or logic
-      const {output} = await prompt({...input, wardrobe: JSON.stringify(wardrobe)});
-      return output!;
-    } catch (error) {
-      console.error('Error parsing wardrobe JSON:', error);
-      throw new Error('Invalid wardrobe JSON format.');
+    const {output} = await prompt(input);
+    if (!output) {
+      throw new Error('The model did not return a valid outfit suggestion.');
     }
+    return output;
   }
 );

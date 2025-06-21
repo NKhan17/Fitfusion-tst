@@ -41,9 +41,11 @@ import {
   suggestOutfit,
   type SuggestOutfitOutput,
 } from "@/ai/flows/suggest-outfit-from-mood-event-weather";
+import { generateOutfitImage } from "@/ai/flows/generate-outfit-image";
 import { wardrobe } from "@/lib/wardrobe";
 import { FitFusionLogo } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const moodOptions = [
   { value: "happy", label: "Happy", icon: <Smile className="size-5" /> },
@@ -68,7 +70,9 @@ export default function Home() {
   const [selectedEvent, setSelectedEvent] = useState("");
   const [weather, setWeather] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingImages, setIsGeneratingImages] = useState(false);
   const [outfit, setOutfit] = useState<SuggestOutfitOutput | null>(null);
+  const [imageUrls, setImageUrls] = useState<(string | null)[]>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +87,8 @@ export default function Home() {
 
     setIsLoading(true);
     setOutfit(null);
+    setImageUrls([]);
+    setIsGeneratingImages(false);
 
     try {
       let finalMood = selectedMood;
@@ -105,23 +111,34 @@ export default function Home() {
         return;
       }
 
+      // First, get the text-based outfit suggestion
       const suggestion = await suggestOutfit({
         mood: finalMood,
         event: selectedEvent,
         weather,
         wardrobe: JSON.stringify(wardrobe),
       });
-
       setOutfit(suggestion);
+      setIsLoading(false); // Stop main loader, show text suggestion
+
+      // Now, generate images for the suggested items
+      setIsGeneratingImages(true);
+      const imagePromises = suggestion.items.map(item =>
+        generateOutfitImage(item.description)
+      );
+      const imageResults = await Promise.all(imagePromises);
+      setImageUrls(imageResults.map(r => r.imageUrl));
+
     } catch (error) {
-      console.error("Error getting outfit suggestion:", error);
+      console.error("Error during outfit generation process:", error);
       toast({
         title: "Error",
-        description: "Failed to get outfit suggestion. Please try again.",
+        description: "Failed to get outfit suggestion or generate images. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
+    } finally {
+      setIsGeneratingImages(false);
     }
   };
 
@@ -205,11 +222,16 @@ export default function Home() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isLoading} className="w-full">
+              <Button type="submit" disabled={isLoading || isGeneratingImages} className="w-full">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Fusing Your Fit...
+                  </>
+                ) : isGeneratingImages ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating Images...
                   </>
                 ) : (
                   "Get Suggestion"
@@ -233,22 +255,24 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div className="space-y-2 group">
-                            <Image src="https://placehold.co/400x600.png" alt="Top" width={400} height={600} className="rounded-lg object-cover aspect-[2/3] transition-transform duration-300 group-hover:scale-105" data-ai-hint="fashion top" />
-                            <p className="text-center text-sm font-medium">Top</p>
-                        </div>
-                        <div className="space-y-2 group">
-                            <Image src="https://placehold.co/400x600.png" alt="Bottom" width={400} height={600} className="rounded-lg object-cover aspect-[2/3] transition-transform duration-300 group-hover:scale-105" data-ai-hint="fashion bottom" />
-                            <p className="text-center text-sm font-medium">Bottom</p>
-                        </div>
-                        <div className="space-y-2 group">
-                             <Image src="https://placehold.co/400x600.png" alt="Footwear" width={400} height={600} className="rounded-lg object-cover aspect-[2/3] transition-transform duration-300 group-hover:scale-105" data-ai-hint="fashion footwear" />
-                            <p className="text-center text-sm font-medium">Footwear</p>
-                        </div>
-                        <div className="space-y-2 group">
-                            <Image src="https://placehold.co/400x600.png" alt="Accessory" width={400} height={600} className="rounded-lg object-cover aspect-[2/3] transition-transform duration-300 group-hover:scale-105" data-ai-hint="fashion accessory" />
-                            <p className="text-center text-sm font-medium">Accessory</p>
-                        </div>
+                        {(outfit.items || []).map((item, index) => (
+                           <div key={item.category} className="space-y-2 group">
+                                <div className="aspect-[2/3] w-full rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                                  {imageUrls[index] ? (
+                                      <Image 
+                                          src={imageUrls[index]!} 
+                                          alt={item.category} 
+                                          width={400} 
+                                          height={600} 
+                                          className="rounded-lg object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
+                                      />
+                                  ) : (
+                                      <Skeleton className="w-full h-full rounded-lg" />
+                                  )}
+                                </div>
+                                <p className="text-center text-sm font-medium">{item.category}</p>
+                            </div>
+                        ))}
                     </div>
                 </CardContent>
             </Card>
