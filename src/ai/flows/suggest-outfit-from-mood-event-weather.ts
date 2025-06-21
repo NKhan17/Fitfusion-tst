@@ -35,14 +35,14 @@ const prompt = ai.definePrompt({
   name: 'suggestOutfitPrompt',
   input: {schema: SuggestOutfitInputSchema},
   output: {schema: SuggestOutfitOutputSchema},
-  prompt: `You are a personal stylist. Suggest an outfit based on the user\'s mood, the event they are attending, and the current weather.
+  prompt: `You are a personal stylist with a keen eye for trends, drawing inspiration from Pinterest. Suggest an outfit based on the user's mood, the event they are attending, and the current weather.
 
   Mood: {{mood}}
   Event: {{event}}
   Weather: {{weather}}
   Wardrobe: {{wardrobe}}
 
-  Consider the provided wardrobe to create a stylish and appropriate outfit. The wardrobe is a JSON string. Return an outfit name, mood tag, and a fun explanation of why the outfit works. If possible, return product links to representative fashion items from online stores.
+  Consider the provided wardrobe to create a stylish and appropriate outfit. Your suggestions should feel like they're straight from a trending Pinterest board. The wardrobe is a JSON string. Return an outfit name, mood tag, and a fun explanation of why the outfit works, referencing Pinterest trends. If possible, return product links to representative fashion items from online stores.
   `,
 });
 
